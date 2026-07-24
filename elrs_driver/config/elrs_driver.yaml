@@ -1,0 +1,24 @@
+# Default parameters for the elrs_driver node.
+#
+# Channel/switch indices depend on your transmitter's model/mixer -- verify against the real
+# link before trusting them: run the node and watch /joy while moving each stick/switch.
+
+elrs_driver:
+  ros__parameters:
+    serial_port: /dev/ttyUSB0   # USB-UART adapter, or a board header UART (e.g. /dev/ttyAMA0)
+    baud: 420000                # ExpressLRS CRSF default
+    require_serial: true        # false = dry-run (no port opened; telemetry frames logged)
+    link_mode: crsf             # 'crsf' now; 'mavlink' (MAVLink-over-ELRS) is on the roadmap
+    poll_rate_hz: 200.0         # serial-drain / Joy-publish tick
+
+    # Channel (0-based) feeding each Joy axis, in axis order. Default = AETR order
+    # (0=Aileron, 1=Elevator, 2=Throttle, 3=Rudder).
+    axis_channels: [0, 1, 2, 3]
+
+    # Arm/deadman switch -> a Joy button, so a downstream joy teleop's deadman gate works.
+    deadman_channel: 4          # e.g. AUX1 (a 2-position switch) -- check on your TX
+    deadman_button_index: 4
+    deadman_threshold: 0.5      # switch counts as held when its normalized value > this
+    rc_timeout_sec: 0.5         # publish a neutral Joy (deadman released) if RC goes stale
+
+    telemetry_rate_hz: 5.0      # battery frames pushed back to the handset (0 disables)

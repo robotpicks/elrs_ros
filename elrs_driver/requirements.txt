@@ -1,0 +1,7 @@
+# pyserial is not a ROS/apt package. Install with either:
+#   rosdep install --from-paths . --ignore-src -r -y      # via python3-serial rosdep key
+# or, on a PEP 668 (externally-managed) system:
+#   pip install --user --break-system-packages pyserial
+# It is imported lazily, so the package still builds and dry-runs (require_serial:=false)
+# without it.
+pyserial
