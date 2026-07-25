@@ -20,6 +20,7 @@ logs but never kills the node.
 import math
 
 import rclpy
+from rclpy.executors import ExternalShutdownException
 from rclpy.node import Node as RosNode
 from sensor_msgs.msg import BatteryState, Joy
 
@@ -168,15 +169,43 @@ class ElrsDriverNode(RosNode):
         frame = self._link.encode_battery(bat.voltage, current, remaining)
         self._write_frame(frame, 'battery telemetry')
 
+    def destroy_node(self) -> bool:
+        # Release the UART on the way down. The OS would reclaim it at process exit anyway,
+        # but closing here means a node restarted in-place (or a second node on the same port)
+        # doesn't race a still-open handle. None in dry-run, where no port was ever opened.
+        if self._serial is not None:
+            try:
+                self._serial.close()
+            except Exception as exc:  # a failed close must not mask the shutdown itself
+                self.get_logger().warning('error closing serial port: %s' % exc)
+            self._serial = None
+        return super().destroy_node()
+
 
 def main(args=None):
     rclpy.init(args=args)
     node = ElrsDriverNode()
     try:
         rclpy.spin(node)
+    except (KeyboardInterrupt, ExternalShutdownException):
+        # Ctrl-C, or a launch/systemd supervisor sending SIGTERM: rclpy's signal handler
+        # shuts the context down and spin() reports it as ExternalShutdownException.
+        # That is a normal stop, so swallow it and exit 0 -- otherwise every clean
+        # shutdown looks like a crash to whatever is supervising the node.
+        pass
+    except RuntimeError:
+        # The same stop, different symptom: if the signal lands while the executor is building
+        # its wait set, rclpy invalidates the context underneath itself and raises RCLError
+        # ("the given context is not valid") instead. It is a RuntimeError subclass that only
+        # exists in a private module, so match the base and gate on the context actually being
+        # gone -- a RuntimeError with a live context is a real fault and must propagate.
+        if rclpy.ok():
+            raise
     finally:
         node.destroy_node()
-        rclpy.shutdown()
+        # try_shutdown(), not shutdown(): the context is already down in the
+        # ExternalShutdownException case and shutdown() would raise on top of it.
+        rclpy.try_shutdown()
 
 
 if __name__ == '__main__':
