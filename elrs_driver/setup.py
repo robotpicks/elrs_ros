@@ -21,7 +21,7 @@ setup(
     maintainer_email='nir@nadirwave.com',
     description='Generic ExpressLRS / CRSF receiver driver for ROS 2 (Joy + handset telemetry).',
     license='Apache-2.0',
-    tests_require=['pytest'],
+    extras_require={'test': ['pytest']},
     entry_points={
         'console_scripts': [
             'elrs_driver = elrs_driver.elrs_driver_node:main',

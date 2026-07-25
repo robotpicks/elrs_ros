@@ -73,7 +73,7 @@ class ElrsDriverNode(RosNode):
             self.create_timer(1.0 / poll_hz, self._poll_serial)
             self.create_timer(0.1, self._rc_watchdog)
         else:
-            self.get_logger().warn(
+            self.get_logger().warning(
                 'require_serial=false: dry-run, no serial port opened; RC input is disabled and '
                 'telemetry frames are logged instead of sent')
 
