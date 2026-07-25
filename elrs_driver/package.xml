@@ -8,13 +8,14 @@
   <license>Apache-2.0</license>
   <url type="repository">https://github.com/robotpicks/elrs_ros</url>
 
-  <buildtool_depend>ament_python</buildtool_depend>
-
   <depend>rclpy</depend>
   <depend>sensor_msgs</depend>
   <exec_depend>launch</exec_depend>
   <exec_depend>launch_ros</exec_depend>
   <exec_depend>ament_index_python</exec_depend>
+  <!-- pyserial, imported lazily so the package still builds and dry-runs
+       (require_serial:=false) without it. python3-serial is a stock rosdep key. -->
+  <exec_depend>python3-serial</exec_depend>
 
   <test_depend>ament_copyright</test_depend>
   <test_depend>ament_flake8</test_depend>

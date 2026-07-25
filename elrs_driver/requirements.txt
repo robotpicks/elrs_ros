@@ -1,7 +1,12 @@
-# pyserial is not a ROS/apt package. Install with either:
-#   rosdep install --from-paths . --ignore-src -r -y      # via python3-serial rosdep key
-# or, on a PEP 668 (externally-managed) system:
-#   pip install --user --break-system-packages pyserial
+# pyserial IS packaged by the distro (python3-serial) and is declared in package.xml under that
+# rosdep key, so the manifest stays the single source of truth. Prefer:
+#   rosdep install --from-paths . --ignore-src -r -y
+# or, from the robotpicks meta repo:  ./robotpicks.sh deps
+#
+# This file is the plain-pip fallback. On a PEP 668 (externally-managed) system pip refuses to
+# touch the system Python, hence the flag:
+#   pip install --user --break-system-packages -r requirements.txt
+#
 # It is imported lazily, so the package still builds and dry-runs (require_serial:=false)
 # without it.
 pyserial
