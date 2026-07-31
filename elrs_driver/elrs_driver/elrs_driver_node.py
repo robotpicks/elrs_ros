@@ -20,6 +20,7 @@ logs but never kills the node.
 import math
 
 import rclpy
+from rcl_interfaces.msg import ParameterDescriptor
 from rclpy.executors import ExternalShutdownException
 from rclpy.node import Node as RosNode
 from sensor_msgs.msg import BatteryState, Joy
@@ -50,6 +51,20 @@ class ElrsDriverNode(RosNode):
         self.declare_parameter('deadman_threshold', 0.5)     # "on" when channel unit > this
         self.declare_parameter('rc_timeout_sec', 0.5)        # neutral Joy if RC goes stale
 
+        # Extra channels (typically 2-position switches) exposed as further Joy buttons, e.g. so
+        # a downstream teleop's button-triggered features (rp1_teleop's mode_buttons) work over
+        # ELRS the same way they do over a gamepad's real buttons -- this node otherwise only ever
+        # populates the single deadman bit above. button_channels[i] feeds Joy.buttons[
+        # button_indices[i]]; both empty by default (no extra buttons) since which switches are
+        # free depends on the transmitter -- set per-robot, not here.
+        # dynamic_typing=True: an empty-list default alone makes rclpy infer this parameter's
+        # fixed type as BYTE_ARRAY, which then rejects a non-empty integer-array override from a
+        # params file as a type mismatch -- see teleop_node.py's mode_buttons for the same issue.
+        dynamic = ParameterDescriptor(dynamic_typing=True)
+        self.declare_parameter('button_channels', [], dynamic)
+        self.declare_parameter('button_indices', [], dynamic)
+        self.declare_parameter('button_threshold', 0.5)
+
         # --- telemetry back to the handset -------------------------------------------------
         self.declare_parameter('telemetry_rate_hz', 5.0)     # battery frames pushed to the RX
 
@@ -59,6 +74,15 @@ class ElrsDriverNode(RosNode):
         self._deadman_button_index = self.get_parameter('deadman_button_index').value
         self._deadman_threshold = self.get_parameter('deadman_threshold').value
         self._rc_timeout = self.get_parameter('rc_timeout_sec').value
+        self._button_channels = list(self.get_parameter('button_channels').value)
+        self._button_indices = list(self.get_parameter('button_indices').value)
+        self._button_threshold = self.get_parameter('button_threshold').value
+        if len(self._button_channels) != len(self._button_indices):
+            self.get_logger().error(
+                'button_channels (%d entries) and button_indices (%d entries) must be the same '
+                'length -- ignoring both' % (len(self._button_channels), len(self._button_indices)))
+            self._button_channels = []
+            self._button_indices = []
 
         self._link = self._make_link(self.get_parameter('link_mode').value)
         self._serial = None
@@ -137,10 +161,15 @@ class ElrsDriverNode(RosNode):
         msg.header.stamp = self.get_clock().now().to_msg()
         msg.axes = [self._link.raw_to_unit(channels[c]) if 0 <= c < len(channels) else 0.0
                     for c in self._axis_channels]
-        buttons = [0] * (self._deadman_button_index + 1)
+        buttons_len = max([self._deadman_button_index] + self._button_indices, default=-1) + 1
+        buttons = [0] * buttons_len
         if 0 <= self._deadman_channel < len(channels):
             on = self._link.raw_to_unit(channels[self._deadman_channel]) > self._deadman_threshold
             buttons[self._deadman_button_index] = 1 if on else 0
+        for ch, idx in zip(self._button_channels, self._button_indices):
+            if 0 <= ch < len(channels):
+                on = self._link.raw_to_unit(channels[ch]) > self._button_threshold
+                buttons[idx] = 1 if on else 0
         msg.buttons = buttons
         self._joy_pub.publish(msg)
 
