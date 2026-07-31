@@ -21,4 +21,12 @@ elrs_driver:
     deadman_threshold: 0.5      # switch counts as held when its normalized value > this
     rc_timeout_sec: 0.5         # publish a neutral Joy (deadman released) if RC goes stale
 
+    # Further channels/switches exposed as additional Joy buttons (e.g. for a downstream teleop's
+    # button-triggered features), same threshold convention as the deadman switch above. Empty by
+    # default -- which switches are actually free depends on your transmitter; set both lists the
+    # same length, button_channels[i] -> Joy.buttons[button_indices[i]].
+    button_channels: []
+    button_indices: []
+    button_threshold: 0.5
+
     telemetry_rate_hz: 5.0      # battery frames pushed back to the handset (0 disables)
