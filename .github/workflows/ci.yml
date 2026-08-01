@@ -1,0 +1,55 @@
+name: CI
+
+# Builds elrs_driver and runs its tests (the pure-python CRSF codec/link pytest suite plus the
+# ament linters declared in package.xml). Runs inside the official ros:lyrical image rather than
+# ros-tooling/setup-ros so the job spends seconds, not minutes, on ROS itself -- this package is
+# robot-agnostic and needs nothing beyond ros-base + its own rosdep-declared deps (pyserial is
+# imported lazily, so even it is only needed at test collection, not build).
+
+on:
+  push:
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-24.04
+    container: ros:lyrical-ros-base
+    timeout-minutes: 15
+    defaults:
+      run:
+        shell: bash
+    env:
+      DEBIAN_FRONTEND: noninteractive
+    steps:
+      # git before checkout: without it actions/checkout falls back to a tarball download.
+      - name: Install git + colcon + pip
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends \
+            git python3-colcon-common-extensions python3-pip
+
+      - uses: actions/checkout@v7
+
+      # The image ships /etc/ros/rosdep/sources.list.d (rosdep init already ran at image build),
+      # but NOT the per-user cache `rosdep install` actually reads -- a fresh $HOME needs
+      # `rosdep update` first or the install step fails with "not initialized yet".
+      - name: rosdep install
+        run: |
+          rosdep update
+          rosdep install --from-paths . --ignore-src -r -y
+
+      - name: colcon build
+        run: |
+          source /opt/ros/lyrical/setup.bash
+          colcon build --symlink-install
+
+      # `colcon test` exits 0 even when tests fail; `test-result` is the actual gate.
+      - name: colcon test
+        run: |
+          source /opt/ros/lyrical/setup.bash
+          colcon test
+          colcon test-result --verbose
